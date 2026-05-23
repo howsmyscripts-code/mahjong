@@ -1,0 +1,2179 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>麻將 Mahjong</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&family=Cinzel:wght@400;700&display=swap');
+
+  :root {
+    --felt: #0f5c30;
+    --felt-light: #156e38;
+    --felt-border: #07200f;
+    --gold: #f0b800;
+    --gold-light: #ffe033;
+    --tile-bg: #fffef5;
+    --tile-shadow: #7a5c1e;
+    --tile-border: #c8922a;
+    --man: #c0392b;
+    --pin: #27ae60;
+    --sou: #2471a3;
+    --honor: #8e44ad;
+    --text-dark: #2c1810;
+    --panel-bg: rgba(0,0,0,0.45);
+    --red: #e74c3c;
+    --highlight: #f39c12;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #061209;
+    font-family: 'Noto Serif SC', serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  /* Bamboo pattern background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      repeating-linear-gradient(90deg, rgba(255,255,255,0.015) 0px, transparent 1px, transparent 40px),
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.015) 0px, transparent 1px, transparent 40px);
+    pointer-events: none;
+  }
+
+  #app {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+
+  /* ===== SCREENS ===== */
+  .screen { display: none; width: 100%; height: 100%; align-items: center; justify-content: center; }
+  .screen.active { display: flex; }
+
+  /* START SCREEN */
+  #start-screen {
+    flex-direction: column;
+    gap: 32px;
+    background: radial-gradient(ellipse at center, #1a7a3c 0%, #081a0a 70%);
+  }
+
+  .logo {
+    text-align: center;
+    animation: fadeDown 1s ease both;
+  }
+
+  .logo-kanji {
+    font-size: clamp(64px, 10vw, 120px);
+    color: var(--gold);
+    text-shadow: 0 0 40px rgba(201,162,39,0.5), 0 4px 8px rgba(0,0,0,0.8);
+    line-height: 1;
+    letter-spacing: 0.1em;
+  }
+
+  .logo-sub {
+    font-family: 'Cinzel', serif;
+    color: var(--gold-light);
+    font-size: clamp(18px, 3vw, 28px);
+    letter-spacing: 0.4em;
+    margin-top: 8px;
+    opacity: 0.85;
+  }
+
+  .decorative-line {
+    width: 200px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    margin: 0 auto;
+  }
+
+  .start-btn {
+    font-family: 'Cinzel', serif;
+    font-size: 18px;
+    letter-spacing: 0.2em;
+    color: var(--felt-border);
+    background: linear-gradient(135deg, var(--gold-light), var(--gold));
+    border: none;
+    padding: 16px 48px;
+    cursor: pointer;
+    border-radius: 4px;
+    box-shadow: 0 4px 20px rgba(201,162,39,0.4), 0 2px 4px rgba(0,0,0,0.6);
+    transition: all 0.2s;
+    animation: fadeUp 1s 0.3s ease both;
+  }
+
+  .start-btn:hover {
+    background: linear-gradient(135deg, #fff5c0, var(--gold-light));
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(201,162,39,0.6);
+  }
+
+  /* Difficulty selector */
+  .difficulty-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    animation: fadeUp 1s 0.15s ease both;
+  }
+  .difficulty-label {
+    font-family: 'Cinzel', serif;
+    color: rgba(201,162,39,0.7);
+    font-size: 12px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+  }
+  .difficulty-btns {
+    display: flex;
+    gap: 8px;
+  }
+  .diff-btn {
+    font-family: 'Cinzel', serif;
+    font-size: 13px;
+    padding: 8px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    letter-spacing: 0.1em;
+    transition: all 0.2s;
+    border: 2px solid transparent;
+    background: rgba(255,255,255,0.08);
+    color: rgba(255,255,255,0.6);
+  }
+  .diff-btn:hover { background: rgba(255,255,255,0.15); color: #fff; }
+  .diff-btn.selected {
+    border-color: var(--gold);
+    background: rgba(201,162,39,0.15);
+    color: var(--gold-light);
+  }
+  .diff-btn.easy.selected  { border-color: #27ae60; background: rgba(39,174,96,0.15); color: #2ecc71; }
+  .diff-btn.hard.selected  { border-color: #c0392b; background: rgba(192,57,43,0.15); color: #e74c3c; }
+
+  /* Hint button */
+  .btn-hint {
+    background: rgba(201,162,39,0.2);
+    border: 1px solid rgba(201,162,39,0.5);
+    color: var(--gold-light);
+  }
+  .btn-hint:hover { background: rgba(201,162,39,0.35); }
+
+  /* Hint modal */
+  #hint-modal {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 600;
+  }
+  #hint-modal.active { display: flex; }
+  #hint-modal-inner {
+    background: linear-gradient(145deg, #1a3a25, #0f2318);
+    border: 2px solid var(--gold);
+    border-radius: 12px;
+    padding: 28px 32px;
+    max-width: 400px;
+    width: 90%;
+    text-align: center;
+  }
+  #hint-modal-inner h3 {
+    font-family: 'Cinzel', serif;
+    color: var(--gold-light);
+    font-size: 20px;
+    margin-bottom: 16px;
+  }
+  .hint-section { margin: 12px 0; }
+  .hint-section-title {
+    color: var(--gold);
+    font-size: 12px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    opacity: 0.8;
+  }
+  .hint-tiles {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px;
+    margin: 6px 0;
+  }
+  .hint-tile {
+    background: var(--tile-bg);
+    border: 1px solid var(--tile-border);
+    border-radius: 3px;
+    width: 38px; height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0;
+    box-shadow: 1px 2px 0 var(--tile-shadow);
+    overflow: hidden;
+    padding: 2px;
+  }
+  .hint-tile svg { display: block; }
+  .hint-tile.highlight {
+    border-color: var(--gold);
+    background: #ffffee;
+    box-shadow: 0 0 8px rgba(201,162,39,0.6);
+  }
+  .hint-text {
+    color: rgba(255,255,255,0.85);
+    font-size: 13px;
+    line-height: 1.6;
+    margin: 8px 0;
+  }
+  .hint-text strong { color: var(--gold-light); }
+  .shanten-badge {
+    display: inline-block;
+    background: rgba(201,162,39,0.2);
+    border: 1px solid var(--gold);
+    color: var(--gold-light);
+    border-radius: 4px;
+    padding: 2px 10px;
+    font-size: 13px;
+    margin: 4px;
+  }
+
+  /* ===== GAME SCREEN ===== */
+  #game-screen {
+    flex-direction: column;
+    position: relative;
+    background: var(--felt);
+    background-image:
+      radial-gradient(ellipse at center, #1a8040 0%, #0f5c30 45%, #072010 100%);
+  }
+
+  /* Info bar */
+  #info-bar {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 44px;
+    background: rgba(0,0,0,0.6);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    z-index: 100;
+    border-bottom: 1px solid rgba(201,162,39,0.3);
+  }
+
+  .info-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--gold-light);
+    font-size: 13px;
+  }
+
+  .info-label { opacity: 0.7; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; }
+  .info-value { font-weight: bold; font-size: 15px; }
+
+  .wind-badge {
+    background: var(--gold);
+    color: #000;
+    padding: 2px 8px;
+    border-radius: 2px;
+    font-weight: bold;
+    font-size: 14px;
+  }
+
+  /* ===== TABLE LAYOUT ===== */
+  #table {
+    position: relative;
+    width: min(90vw, 700px);
+    height: min(90vw, 700px);
+    margin-top: 44px;
+  }
+
+  /* Center area */
+  #center-area {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 200px;
+    height: 200px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: rgba(0,0,0,0.25);
+    border: 1px solid rgba(201,162,39,0.2);
+    border-radius: 8px;
+  }
+
+  #wall-count {
+    color: var(--gold-light);
+    font-size: 13px;
+    text-align: center;
+  }
+  #wall-count span { font-size: 28px; font-weight: bold; display: block; color: var(--gold); }
+
+  #discard-pile {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    max-width: 170px;
+    justify-content: center;
+    margin-top: 4px;
+    max-height: 110px;
+    overflow: hidden;
+  }
+
+  .discard-tile {
+    width: 22px;
+    height: 28px;
+    background: var(--tile-bg);
+    border-radius: 2px;
+    border: 1px solid var(--tile-border);
+    font-size: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: default;
+    transition: transform 0.1s;
+    box-shadow: 1px 1px 0 var(--tile-shadow);
+    overflow: hidden;
+    padding: 1px;
+  }
+  .discard-tile svg { display: block; }
+
+  .discard-tile.last-discard {
+    border-color: var(--gold);
+    box-shadow: 0 0 6px rgba(201,162,39,0.8);
+  }
+
+  /* Player areas */
+  .player-area {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* SOUTH = human (bottom) */
+  #player-south {
+    bottom: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    align-items: center;
+  }
+
+  /* NORTH (top) */
+  #player-north {
+    top: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    align-items: center;
+    flex-direction: column-reverse;
+  }
+
+  /* WEST (left) */
+  #player-west {
+    left: 0; top: 50%;
+    transform: translateY(-50%);
+    flex-direction: row;
+    width: auto;
+    align-items: center;
+  }
+
+  /* EAST (right) */
+  #player-east {
+    right: 0; top: 50%;
+    transform: translateY(-50%);
+    flex-direction: row-reverse;
+    width: auto;
+    align-items: center;
+  }
+
+  .player-label {
+    background: rgba(0,0,0,0.5);
+    border: 1px solid rgba(201,162,39,0.4);
+    border-radius: 4px;
+    padding: 3px 10px;
+    color: var(--gold-light);
+    font-size: 12px;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .player-label.active-player {
+    border-color: var(--gold);
+    background: rgba(201,162,39,0.2);
+    box-shadow: 0 0 12px rgba(201,162,39,0.4);
+  }
+
+  .player-wind-badge {
+    background: var(--gold);
+    color: #000;
+    border-radius: 2px;
+    padding: 0 4px;
+    font-size: 10px;
+    font-weight: bold;
+  }
+
+  /* Score display */
+  .player-score {
+    color: rgba(255,255,255,0.6);
+    font-size: 11px;
+  }
+
+  /* ===== TILES ===== */
+  .tile {
+    background: linear-gradient(145deg, #ffffff, #f5ead8);
+    border: 1px solid var(--tile-border);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    cursor: pointer;
+    position: relative;
+    box-shadow: 2px 3px 0 var(--tile-shadow), 0 1px 3px rgba(0,0,0,0.4);
+    transition: transform 0.15s, box-shadow 0.15s;
+    flex-shrink: 0;
+  }
+
+  .tile:hover { background: #ffffff; }
+
+  .tile.selected {
+    transform: translateY(-8px);
+    box-shadow: 2px 10px 0 var(--tile-shadow), 0 4px 12px rgba(0,0,0,0.5);
+    background: #fffde0;
+    border-color: var(--gold);
+  }
+
+  .tile.face-down {
+    background: linear-gradient(145deg, #2a6b40, #1e5230);
+    border-color: #1a4a2e;
+    cursor: default;
+    font-size: 12px;
+  }
+
+  .tile.face-down::after {
+    content: '🀫';
+    font-size: 14px;
+  }
+
+  /* Human hand (large) */
+  #hand-south .tile {
+    width: 72px;
+    height: 94px;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    padding: 2px;
+  }
+  #hand-south .tile svg { display: block; }
+  #hand-south .tile .tile-label {
+    font-size: 9px;
+    opacity: 0.6;
+    letter-spacing: 0.01em;
+    text-align: center;
+    line-height: 1.2;
+    margin-top: 2px;
+  }
+
+  /* AI hands (small, face down) */
+  .hand-north .tile,
+  .hand-east .tile,
+  .hand-west .tile {
+    width: 22px;
+    height: 30px;
+  }
+
+  .hand-north { display: flex; flex-direction: row; gap: 2px; }
+  .hand-east { display: flex; flex-direction: column; gap: 2px; }
+  .hand-west { display: flex; flex-direction: column; gap: 2px; }
+
+  /* Melds */
+  .melds-area {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+
+  .meld {
+    display: flex;
+    gap: 1px;
+    background: rgba(0,0,0,0.2);
+    padding: 2px;
+    border-radius: 3px;
+  }
+
+  .meld .tile {
+    width: 34px;
+    height: 44px;
+    justify-content: center;
+    align-items: center;
+    cursor: default;
+    overflow: hidden;
+    padding: 2px;
+  }
+  .meld .tile svg { display: block; }
+
+  /* ===== ACTION BUTTONS ===== */
+  #action-bar {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    background: rgba(0,0,0,0.5);
+    border-top: 1px solid rgba(201,162,39,0.2);
+    z-index: 200;
+  }
+
+  .action-btn {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 14px;
+    padding: 8px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.15s;
+    letter-spacing: 0.05em;
+    display: none;
+  }
+
+  .action-btn.visible { display: block; }
+
+  .btn-discard { background: #c0392b; color: #fff; }
+  .btn-discard:hover { background: #e74c3c; }
+
+  .btn-chi { background: #27ae60; color: #fff; }
+  .btn-chi:hover { background: #2ecc71; }
+
+  .btn-pon { background: #2980b9; color: #fff; }
+  .btn-pon:hover { background: #3498db; }
+
+  .btn-kan { background: #8e44ad; color: #fff; }
+  .btn-kan:hover { background: #9b59b6; }
+
+  .btn-win { background: linear-gradient(135deg, var(--gold-light), var(--gold)); color: #000; }
+  .btn-win:hover { transform: scale(1.05); }
+
+  .btn-pass { background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.8); }
+  .btn-pass:hover { background: rgba(255,255,255,0.25); }
+
+  /* ===== LOG ===== */
+  #game-log {
+    position: absolute;
+    right: 8px;
+    top: 52px;
+    width: 160px;
+    max-height: 200px;
+    overflow-y: auto;
+    background: rgba(0,0,0,0.5);
+    border: 1px solid rgba(201,162,39,0.2);
+    border-radius: 4px;
+    padding: 6px;
+    font-size: 11px;
+    color: rgba(255,255,255,0.75);
+    z-index: 100;
+  }
+
+  #game-log::-webkit-scrollbar { width: 4px; }
+  #game-log::-webkit-scrollbar-track { background: transparent; }
+  #game-log::-webkit-scrollbar-thumb { background: rgba(201,162,39,0.4); border-radius: 2px; }
+
+  .log-entry { padding: 2px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+  .log-entry.log-win { color: var(--gold-light); font-weight: bold; }
+  .log-entry.log-draw { color: #27ae60; }
+  .log-entry.log-pon { color: #3498db; }
+
+  /* ===== MODAL ===== */
+  #modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.8);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+
+  #modal-overlay.active { display: flex; }
+
+  #modal {
+    background: linear-gradient(145deg, #1a3a25, #0f2318);
+    border: 2px solid var(--gold);
+    border-radius: 12px;
+    padding: 32px 40px;
+    text-align: center;
+    max-width: 420px;
+    width: 90%;
+    box-shadow: 0 0 60px rgba(201,162,39,0.3);
+  }
+
+  #modal h2 {
+    font-family: 'Cinzel', serif;
+    color: var(--gold-light);
+    font-size: 28px;
+    margin-bottom: 8px;
+  }
+
+  #modal .kanji-big {
+    font-size: 64px;
+    margin: 8px 0;
+    display: block;
+  }
+
+  #modal p {
+    color: rgba(255,255,255,0.8);
+    margin: 8px 0;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  #modal .win-tiles {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px;
+    margin: 16px 0;
+  }
+
+  #modal .win-tile {
+    background: var(--tile-bg);
+    border: 1px solid var(--tile-border);
+    border-radius: 4px;
+    width: 42px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0;
+    box-shadow: 2px 3px 0 var(--tile-shadow);
+    overflow: hidden;
+    padding: 2px;
+  }
+  #modal .win-tile svg { display: block; }
+
+  #modal .score-change {
+    font-size: 22px;
+    font-weight: bold;
+    color: var(--gold);
+    margin: 8px 0;
+  }
+
+  #modal .btn-row {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin-top: 24px;
+  }
+
+  .modal-btn {
+    font-family: 'Cinzel', serif;
+    padding: 10px 28px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    letter-spacing: 0.1em;
+    transition: all 0.15s;
+  }
+
+  .modal-btn-primary {
+    background: linear-gradient(135deg, var(--gold-light), var(--gold));
+    color: #000;
+  }
+  .modal-btn-primary:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(201,162,39,0.5); }
+
+  .modal-btn-secondary { background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.8); }
+  .modal-btn-secondary:hover { background: rgba(255,255,255,0.25); }
+
+  /* Chi selection */
+  #chi-modal {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 500;
+  }
+  #chi-modal.active { display: flex; }
+  #chi-modal-inner {
+    background: #1a3a25;
+    border: 2px solid var(--gold);
+    border-radius: 10px;
+    padding: 24px;
+    text-align: center;
+  }
+  #chi-modal-inner h3 { color: var(--gold-light); margin-bottom: 16px; font-family: 'Cinzel', serif; }
+  .chi-option {
+    display: inline-flex;
+    gap: 4px;
+    margin: 6px;
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 6px;
+    border: 2px solid transparent;
+    transition: border-color 0.15s;
+  }
+  .chi-option:hover { border-color: var(--gold); }
+  .chi-option .tile { width: 32px; height: 42px; font-size: 18px; cursor: pointer; }
+
+  /* ===== ANIMATIONS ===== */
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes slideIn {
+    from { opacity: 0; transform: scale(0.8); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  @keyframes tileSlide {
+    from { transform: translateY(-20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 12px rgba(201,162,39,0.4); }
+    50% { box-shadow: 0 0 24px rgba(201,162,39,0.8); }
+  }
+
+  .tile-new { animation: tileSlide 0.3s ease; }
+
+  .active-player { animation: pulse 1.5s infinite; }
+
+  /* Responsive */
+  @media (max-width: 600px) {
+    #table { width: 98vw; height: 98vw; }
+    #center-area { width: 140px; height: 140px; }
+    #hand-south .tile { width: 30px; height: 40px; font-size: 16px; }
+  }
+
+  #status-msg {
+    position: absolute;
+    top: 52px; left: 8px;
+    color: var(--gold-light);
+    font-size: 13px;
+    background: rgba(0,0,0,0.5);
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: 1px solid rgba(201,162,39,0.3);
+    z-index: 100;
+    max-width: 200px;
+  }
+
+  .thinking-dots::after {
+    content: '';
+    animation: dots 1.2s steps(4, end) infinite;
+  }
+  @keyframes dots {
+    0%, 20% { content: ''; }
+    40% { content: '.'; }
+    60% { content: '..'; }
+    80%, 100% { content: '...'; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- START SCREEN -->
+<div id="start-screen" class="screen active">
+  <div class="logo">
+    <div class="logo-kanji">麻將</div>
+    <div class="decorative-line" style="margin:12px auto;"></div>
+    <div class="logo-sub">MAHJONG</div>
+  </div>
+  <div class="difficulty-group">
+    <div class="difficulty-label">Svårighetsgrad</div>
+    <div class="difficulty-btns">
+      <button class="diff-btn easy" onclick="setDifficulty('easy',this)">🟢 Lätt</button>
+      <button class="diff-btn medium selected" onclick="setDifficulty('medium',this)">🟡 Medel</button>
+      <button class="diff-btn hard" onclick="setDifficulty('hard',this)">🔴 Svår</button>
+    </div>
+  </div>
+  <button class="start-btn" onclick="startGame()">▶ STARTA SPEL</button>
+</div>
+
+<!-- GAME SCREEN -->
+<div id="game-screen" class="screen">
+  <div id="info-bar">
+    <div class="info-item">
+      <span class="info-label">Runda</span>
+      <span class="info-value" id="round-display">1</span>
+    </div>
+    <div class="info-item">
+      <span class="info-label">Vind</span>
+      <span class="wind-badge" id="round-wind">東</span>
+    </div>
+    <div class="info-item">
+      <span class="info-label">Mur</span>
+      <span class="info-value" id="wall-display">144</span>
+    </div>
+    <button onclick="showMenu()" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:12px;">☰ Meny</button>
+    <span id="diff-badge" style="font-size:11px;padding:2px 8px;border-radius:3px;background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.6);">🟡 Medel</span>
+  </div>
+
+  <div id="status-msg">Din tur att dra</div>
+
+  <div id="table">
+    <!-- NORTH (AI) -->
+    <div class="player-area" id="player-north">
+      <div class="player-label" id="label-north">
+        <span class="player-wind-badge" id="wind-north">北</span>
+        <span id="name-north">Norr</span>
+        <span class="player-score" id="score-north">25000</span>
+      </div>
+      <div class="melds-area" id="melds-north"></div>
+      <div class="hand-north" id="hand-north"></div>
+    </div>
+
+    <!-- WEST (AI) -->
+    <div class="player-area" id="player-west">
+      <div class="player-label" id="label-west">
+        <span class="player-wind-badge" id="wind-west">西</span>
+        <span id="name-west">Väst</span>
+        <span class="player-score" id="score-west">25000</span>
+      </div>
+      <div class="melds-area" id="melds-west"></div>
+      <div class="hand-west" id="hand-west"></div>
+    </div>
+
+    <!-- EAST (AI) -->
+    <div class="player-area" id="player-east">
+      <div class="player-label" id="label-east">
+        <span class="player-wind-badge" id="wind-east">東</span>
+        <span id="name-east">Öst</span>
+        <span class="player-score" id="score-east">25000</span>
+      </div>
+      <div class="melds-area" id="melds-east"></div>
+      <div class="hand-east" id="hand-east"></div>
+    </div>
+
+    <!-- CENTER -->
+    <div id="center-area">
+      <div id="wall-count"><span id="wall-num">144</span>brickor kvar</div>
+      <div id="discard-pile"></div>
+    </div>
+
+    <!-- SOUTH (Human) -->
+    <div class="player-area" id="player-south">
+      <div class="melds-area" id="melds-south"></div>
+      <div id="hand-south" style="display:flex;gap:4px;flex-wrap:wrap;justify-content:center;"></div>
+      <div class="player-label" id="label-south">
+        <span class="player-wind-badge" id="wind-south">南</span>
+        <span>Du</span>
+        <span class="player-score" id="score-south">25000</span>
+      </div>
+    </div>
+  </div><!-- end table -->
+
+  <div id="action-bar">
+    <button class="action-btn btn-win" id="btn-win" onclick="humanWin()">🏆 MAHJONG!</button>
+    <button class="action-btn btn-chi" id="btn-chi" onclick="humanChi()">吃 CHI</button>
+    <button class="action-btn btn-pon" id="btn-pon" onclick="humanPon()">碰 PON</button>
+    <button class="action-btn btn-kan" id="btn-kan" onclick="humanKan()">槓 KAN</button>
+    <button class="action-btn btn-discard" id="btn-discard" onclick="humanDiscard()">捨 KASTA</button>
+    <button class="action-btn btn-pass" id="btn-pass" onclick="humanPass()">⏭ PASSA</button>
+    <button class="action-btn btn-hint visible" id="btn-hint" onclick="showHint()">💡 TIPS</button>
+  </div>
+
+  <div id="game-log"></div>
+</div>
+
+</div><!-- end app -->
+
+<!-- Hint modal -->
+<div id="hint-modal">
+  <div id="hint-modal-inner">
+    <h3>💡 Tips</h3>
+    <div id="hint-content"></div>
+    <button class="modal-btn modal-btn-secondary" style="margin-top:16px" onclick="document.getElementById('hint-modal').classList.remove('active')">Stäng</button>
+  </div>
+</div>
+
+<!-- Chi selection modal -->
+<div id="chi-modal">
+  <div id="chi-modal-inner">
+    <h3>Välj vilken sekvens</h3>
+    <div id="chi-options"></div>
+    <button class="modal-btn modal-btn-secondary" style="margin-top:12px" onclick="document.getElementById('chi-modal').classList.remove('active')">Avbryt</button>
+  </div>
+</div>
+
+<!-- Result modal -->
+<div id="modal-overlay">
+  <div id="modal">
+    <h2 id="modal-title"></h2>
+    <span id="modal-kanji" class="kanji-big"></span>
+    <div id="modal-tiles" class="win-tiles"></div>
+    <p id="modal-desc"></p>
+    <div id="modal-score" class="score-change"></div>
+    <div class="btn-row">
+      <button class="modal-btn modal-btn-primary" id="modal-next-btn">Nästa hand</button>
+      <button class="modal-btn modal-btn-secondary" onclick="goHome()">Hem</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// DIFFICULTY
+// ============================================================
+let DIFFICULTY = 'medium'; // easy | medium | hard
+
+// easy:   AI slow, rarely claims discards, bad discard choices
+// medium: balanced AI
+// hard:   AI fast, aggressive claims, smart discards
+
+const DIFF_SETTINGS = {
+  easy:   { aiDelay: 2000, ponChance: 0.2, winChance: 0.7,  smartDiscard: false, thinkDelay: 1500 },
+  medium: { aiDelay: 1200, ponChance: 0.5, winChance: 1.0,  smartDiscard: true,  thinkDelay: 1000 },
+  hard:   { aiDelay: 600,  ponChance: 0.8, winChance: 1.0,  smartDiscard: true,  thinkDelay: 500  }
+};
+
+function setDifficulty(level, btn) {
+  DIFFICULTY = level;
+  document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+}
+
+// ============================================================
+// MAHJONG GAME ENGINE
+// Traditional Chinese Mahjong (simplified ruleset)
+// ============================================================
+
+// --- TILES ---
+// Man (Characters) 1-9: 🀇🀈🀉🀊🀋🀌🀍🀎🀏
+// Pin (Circles) 1-9:    🀙🀚🀛🀜🀝🀞🀟🀠🀡
+// Sou (Bamboo) 1-9:     🀐🀑🀒🀓🀔🀕🀖🀗🀘
+// Honors - Winds:       🀀🀁🀂🀃 (East West North South)
+// Honors - Dragons:     🀄🀅🀆 (Chun Hatsu Haku)
+
+const MAN  = ['🀇','🀈','🀉','🀊','🀋','🀌','🀍','🀎','🀏'];
+const PIN  = ['🀙','🀚','🀛','🀜','🀝','🀞','🀟','🀠','🀡'];
+const SOU  = ['🀐','🀑','🀒','🀓','🀔','🀕','🀖','🀗','🀘'];
+const WINDS= ['🀀','🀁','🀂','🀃']; // East West North South
+const DRAG = ['🀄','🀅','🀆']; // Chun Hatsu Haku
+
+// Tile type helpers
+function tileType(tile) {
+  if (MAN.includes(tile)) return 'man';
+  if (PIN.includes(tile)) return 'pin';
+  if (SOU.includes(tile)) return 'sou';
+  if (WINDS.includes(tile)) return 'wind';
+  if (DRAG.includes(tile)) return 'dragon';
+  return 'unknown';
+}
+
+function tileNum(tile) {
+  if (MAN.includes(tile)) return MAN.indexOf(tile) + 1;
+  if (PIN.includes(tile)) return PIN.indexOf(tile) + 1;
+  if (SOU.includes(tile)) return SOU.indexOf(tile) + 1;
+  return -1;
+}
+
+function tileColor(tile) {
+  const t = tileType(tile);
+  if (t === 'man') return '#e00010';    // traditional red
+  if (t === 'pin') return '#1a1a1a';    // traditional black
+  if (t === 'sou') return '#007a2f';    // traditional green
+  if (t === 'wind') return '#1a1a1a';   // black
+  if (t === 'dragon') {
+    if (tile === '🀄') return '#e00010'; // 中 Chun - red
+    if (tile === '🀅') return '#007a2f'; // 發 Hatsu - green
+    if (tile === '🀆') return '#888888'; // 白 Haku - grey (blank)
+  }
+  return '#1a1a1a';
+}
+
+// SVG tile rendering - fills entire tile like real mahjong
+function pinSVG(n, small) {
+  const w = small ? 22 : 68;
+  const h = small ? 22 : 90;
+  const layouts = {
+    1: [[0.5,0.5]],
+    2: [[0.5,0.27],[0.5,0.73]],
+    3: [[0.5,0.18],[0.5,0.5],[0.5,0.82]],
+    4: [[0.27,0.27],[0.73,0.27],[0.27,0.73],[0.73,0.73]],
+    5: [[0.27,0.22],[0.73,0.22],[0.5,0.5],[0.27,0.78],[0.73,0.78]],
+    6: [[0.27,0.18],[0.73,0.18],[0.27,0.5],[0.73,0.5],[0.27,0.82],[0.73,0.82]],
+    7: [[0.27,0.14],[0.73,0.14],[0.5,0.35],[0.27,0.55],[0.73,0.55],[0.27,0.78],[0.73,0.78]],
+    8: [[0.22,0.15],[0.5,0.15],[0.78,0.15],[0.22,0.5],[0.78,0.5],[0.22,0.82],[0.5,0.82],[0.78,0.82]],
+    9: [[0.22,0.14],[0.5,0.14],[0.78,0.14],[0.22,0.5],[0.5,0.5],[0.78,0.5],[0.22,0.86],[0.5,0.86],[0.78,0.86]],
+  };
+  const pts = layouts[n] || [];
+  // Scale circle size down as count increases so they never overlap
+  const baseR  = small ? 2.5 : [0,13,12,11,10,9,8,7,6.5,6][n] || 6;
+  const baseR2 = small ? 1.5 : [0,8,7,6.5,6,5.5,5,4.5,4,3.8][n] || 3.8;
+  const sw     = small ? 0.8 : [0,3,2.8,2.5,2.2,2,1.8,1.6,1.5,1.4][n] || 1.4;
+  let circles = pts.map(([cx,cy]) => {
+    const x = cx*w, y = cy*h;
+    return `<circle cx="${x}" cy="${y}" r="${baseR}" fill="none" stroke="#111" stroke-width="${sw}"/>
+            <circle cx="${x}" cy="${y}" r="${baseR2}" fill="#c00" stroke="none"/>`;
+  }).join('');
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${circles}</svg>`;
+}
+
+function souSVG(n, small) {
+  const w = small ? 22 : 68;
+  const h = small ? 28 : 90;
+  const cols = n <= 4 ? 1 : 2;
+  const perCol = Math.ceil(n / cols);
+  const bw = small ? 3 : 7;
+  const bh = small ? (h*0.7/perCol) : (h*0.75/perCol);
+  const gap = small ? 1 : 2;
+  let rects = '';
+  let drawn = 0;
+  for (let c = 0; c < cols; c++) {
+    const cx = cols === 1 ? w/2 : (c === 0 ? w*0.33 : w*0.67);
+    const totalH = perCol * bh + (perCol-1)*gap;
+    const startY = (h - totalH) / 2;
+    for (let r = 0; r < perCol && drawn < n; r++, drawn++) {
+      const y = startY + r*(bh+gap);
+      const x = cx - bw/2;
+      rects += `<rect x="${x}" y="${y}" width="${bw}" height="${bh}" rx="${bw*0.4}" fill="#007a2f"/>`;
+    }
+  }
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${rects}</svg>`;
+}
+
+function manSVG(n, small) {
+  const nums = ['一','二','三','四','五','六','七','八','九'];
+  const w = small ? 22 : 68;
+  const h = small ? 28 : 90;
+  const numSize = small ? 10 : 44;
+  const manSize = small ? 8 : 36;
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+    <text x="${w/2}" y="${h*0.46}" text-anchor="middle" dominant-baseline="middle"
+      font-family="Noto Serif SC,serif" font-size="${numSize}" font-weight="700" fill="#1a2a6e">${nums[n-1]}</text>
+    <text x="${w/2}" y="${h*0.85}" text-anchor="middle" dominant-baseline="middle"
+      font-family="Noto Serif SC,serif" font-size="${manSize}" font-weight="700" fill="#c00">萬</text>
+  </svg>`;
+}
+
+function honorSVG(tile, small) {
+  const w = small ? 22 : 68;
+  const h = small ? 28 : 90;
+  const map = {
+    '🀀': {ch:'東', color:'#111'},
+    '🀁': {ch:'西', color:'#111'},
+    '🀂': {ch:'北', color:'#111'},
+    '🀃': {ch:'南', color:'#111'},
+    '🀄': {ch:'中', color:'#c00'},
+    '🀅': {ch:'發', color:'#007a2f'},
+    '🀆': {ch:'白', color:'#aaa'},
+  };
+  const d = map[tile];
+  if (!d) return '';
+  const fs = small ? 13 : 70;
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+    <text x="${w/2}" y="${h/2}" text-anchor="middle" dominant-baseline="middle"
+      font-family="Noto Serif SC,serif" font-size="${fs}" font-weight="700" fill="${d.color}">${d.ch}</text>
+  </svg>`;
+}
+
+function tileInner(tile, small) {
+  const type = tileType(tile);
+  const num = tileNum(tile);
+  const s = small || false;
+  if (type === 'pin') return pinSVG(num, s);
+  if (type === 'sou') return souSVG(num, s);
+  if (type === 'man') return manSVG(num, s);
+  return honorSVG(tile, s);
+}
+
+function tileInnerSmall(tile) { return tileInner(tile, true); }
+
+// Build full set of 136 tiles (4 of each)
+function buildWall() {
+  const all = [...MAN, ...PIN, ...SOU, ...WINDS, ...DRAG];
+  let wall = [];
+  for (let i = 0; i < 4; i++) wall.push(...all);
+  // Shuffle
+  for (let i = wall.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [wall[i], wall[j]] = [wall[j], wall[i]];
+  }
+  return wall;
+}
+
+// Sort hand
+function sortHand(hand) {
+  const order = (t) => {
+    if (MAN.includes(t)) return MAN.indexOf(t);
+    if (PIN.includes(t)) return 100 + PIN.indexOf(t);
+    if (SOU.includes(t)) return 200 + SOU.indexOf(t);
+    if (WINDS.includes(t)) return 300 + WINDS.indexOf(t);
+    if (DRAG.includes(t)) return 400 + DRAG.indexOf(t);
+    return 999;
+  };
+  return [...hand].sort((a, b) => order(a) - order(b));
+}
+
+// ============================================================
+// WIN DETECTION
+// ============================================================
+
+// Check if tiles form a complete hand (with melds already removed)
+// Standard hand: 14 tiles = 4 melds (pon/chi/kan) + 1 pair
+// melds = array of already-formed melds
+function checkWin(hand14, melds) {
+  // hand14 includes drawn tile, melds are already declared
+  // We need to check hand14 forms valid sets + pair
+  const tiles = [...hand14];
+  // Try all pairs
+  const unique = [...new Set(tiles)];
+  for (const pair of unique) {
+    const idx1 = tiles.indexOf(pair);
+    if (idx1 < 0) continue;
+    const remaining = [...tiles];
+    remaining.splice(idx1, 1);
+    const idx2 = remaining.indexOf(pair);
+    if (idx2 < 0) continue;
+    remaining.splice(idx2, 1);
+    if (remaining.length === 0) return true; // all in melds
+    if (canFormSets(remaining)) return true;
+  }
+  // Seven pairs (chiitoitsu)
+  if (tiles.length === 14) {
+    const counts = {};
+    for (const t of tiles) counts[t] = (counts[t] || 0) + 1;
+    if (Object.values(counts).every(v => v >= 2) && Object.keys(counts).length === 7) return true;
+  }
+  return false;
+}
+
+function canFormSets(tiles) {
+  if (tiles.length === 0) return true;
+  const arr = [...tiles].sort();
+  // Try pon first
+  if (arr.filter(t => t === arr[0]).length >= 3) {
+    const rest = [...arr];
+    let removed = 0;
+    for (let i = 0; i < rest.length && removed < 3; i++) {
+      if (rest[i] === arr[0]) { rest.splice(i, 1); i--; removed++; }
+    }
+    if (canFormSets(rest)) return true;
+  }
+  // Try chi
+  const t = arr[0];
+  const num = tileNum(t);
+  const type = tileType(t);
+  if (num > 0 && type !== 'wind' && type !== 'dragon') {
+    const arr2 = [...arr];
+    const getTile = (n) => {
+      if (type === 'man') return MAN[n-1];
+      if (type === 'pin') return PIN[n-1];
+      if (type === 'sou') return SOU[n-1];
+    };
+    if (num <= 7) {
+      const t2 = getTile(num+1), t3 = getTile(num+2);
+      const rest = [...arr2];
+      const r1 = rest.indexOf(t); if (r1<0) return false; rest.splice(r1,1);
+      const r2 = rest.indexOf(t2); if (r2<0) {} else {
+        rest.splice(r2,1);
+        const r3 = rest.indexOf(t3); if (r3>=0) {
+          rest.splice(r3,1);
+          if (canFormSets(rest)) return true;
+          rest.splice(r3,0,t3);
+        }
+        rest.splice(r2,0,t2);
+      }
+    }
+    return false;
+  }
+  return false;
+}
+
+// Check if adding tile creates a win
+function canWinWith(hand, melds, drawnTile) {
+  return checkWin([...hand, drawnTile], melds);
+}
+
+// ============================================================
+// GAME STATE
+// ============================================================
+
+const SEATS = ['south', 'east', 'north', 'west'];
+const SEAT_WINDS = { east: '東', south: '南', west: '西', north: '北' };
+const WIND_KANJI = ['東','南','西','北'];
+const ROUND_WINDS = ['東','南','西','北'];
+
+let G = {}; // game state
+
+function initGame() {
+  const wall = buildWall();
+  G = {
+    wall,
+    wallIdx: 0,
+    round: 1,
+    roundWind: '東',
+    dealer: 'east', // east starts
+    currentPlayer: 'east',
+    phase: 'draw', // draw | discard | claim
+    lastDiscard: null,
+    lastDiscardBy: null,
+    selectedTile: -1,
+    pendingClaim: null, // { type, seat }
+    scores: { east: 25000, south: 25000, west: 25000, north: 25000 },
+    hands: { east: [], south: [], west: [], north: [] },
+    melds: { east: [], south: [], west: [], north: [] },
+    discards: [],
+    allDiscards: [], // full log
+    waiting: false,
+    humanSeat: 'south',
+    aiSeats: ['east', 'north', 'west'],
+    gameLog: [],
+    chiPending: null,
+    drawnTile: null
+  };
+
+  // Deal 13 tiles to each player
+  for (let i = 0; i < 13; i++) {
+    for (const seat of ['east', 'south', 'west', 'north']) {
+      G.hands[seat].push(G.wall[G.wallIdx++]);
+    }
+  }
+  // Sort hands
+  for (const seat of SEATS) G.hands[seat] = sortHand(G.hands[seat]);
+}
+
+function drawTile(seat) {
+  if (G.wallIdx >= G.wall.length) return null;
+  const tile = G.wall[G.wallIdx++];
+  G.hands[seat].push(tile);
+  G.drawnTile = tile;
+  return tile;
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+
+function renderAll() {
+  renderHand('south');
+  renderHand('north');
+  renderHand('east');
+  renderHand('west');
+  renderMelds();
+  renderDiscardPile();
+  renderLabels();
+  renderWallCount();
+  renderScores();
+  renderActionButtons();
+}
+
+function tileHTML(tile, idx, seat, selected) {
+  const color = tileColor(tile);
+  const sel = selected ? ' selected' : '';
+  if (seat !== G.humanSeat) {
+    return `<div class="tile face-down"></div>`;
+  }
+  return `<div class="tile${sel}" style="color:${color}" onclick="selectTile(${idx})" title="${tile}">${tile}</div>`;
+}
+
+function renderHand(seat) {
+  const container = document.getElementById('hand-' + seat);
+  if (!container) return;
+  const hand = sortHand(G.hands[seat]);
+  G.hands[seat] = hand;
+
+  if (seat === G.humanSeat) {
+    container.innerHTML = hand.map((tile, i) =>
+      `<div class="tile${G.selectedTile === i ? ' selected' : ''}" onclick="selectTile(${i})">${tileInner(tile)}</div>`
+    ).join('');
+  } else {
+    const cls = seat === 'north' ? 'hand-north' : seat === 'east' ? 'hand-east' : 'hand-west';
+    container.className = cls;
+    container.innerHTML = hand.map(() => `<div class="tile face-down"></div>`).join('');
+  }
+}
+
+function renderMelds() {
+  for (const seat of SEATS) {
+    const el = document.getElementById('melds-' + seat);
+    if (!el) continue;
+    const melds = G.melds[seat];
+    el.innerHTML = melds.map(meld =>
+      `<div class="meld">${meld.tiles.map(t => `<div class="tile meld-tile" style="cursor:default;">${tileInner(t)}</div>`).join('')}</div>`
+    ).join('');
+  }
+}
+
+function renderDiscardPile() {
+  const el = document.getElementById('discard-pile');
+  const recent = G.discards.slice(-20);
+  el.innerHTML = recent.map((entry, i) => {
+    const isLast = i === recent.length - 1;
+    return `<div class="discard-tile${isLast ? ' last-discard' : ''}" title="${entry.seat}: ${entry.tile}">${tileInnerSmall(entry.tile)}</div>`;
+  }).join('');
+}
+
+function renderLabels() {
+  for (const seat of SEATS) {
+    const lbl = document.getElementById('label-' + seat);
+    if (lbl) {
+      lbl.className = 'player-label' + (G.currentPlayer === seat ? ' active-player' : '');
+    }
+    const windEl = document.getElementById('wind-' + seat);
+    if (windEl) windEl.textContent = SEAT_WINDS[seat];
+  }
+}
+
+function renderWallCount() {
+  const remaining = G.wall.length - G.wallIdx;
+  document.getElementById('wall-display').textContent = remaining;
+  document.getElementById('wall-num').textContent = remaining;
+  document.getElementById('round-display').textContent = G.round;
+  document.getElementById('round-wind').textContent = G.roundWind;
+}
+
+function renderScores() {
+  for (const seat of SEATS) {
+    const el = document.getElementById('score-' + seat);
+    if (el) el.textContent = G.scores[seat].toLocaleString();
+  }
+}
+
+function renderActionButtons() {
+  const btns = ['btn-win','btn-chi','btn-pon','btn-kan','btn-discard','btn-pass'];
+  btns.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.classList.remove('visible'); el.style.display = 'none'; }
+  });
+
+  if (G.waiting) return;
+
+  const showBtn = (id) => {
+    const el = document.getElementById(id);
+    if (el) { el.classList.add('visible'); el.style.display = 'block'; }
+  };
+
+  if (G.phase === 'discard' && G.currentPlayer === G.humanSeat) {
+    showBtn('btn-discard');
+    // Check self-draw win
+    if (checkWin(G.hands[G.humanSeat], G.melds[G.humanSeat])) {
+      showBtn('btn-win');
+    }
+  }
+
+  if (G.phase === 'claim' && G.lastDiscardBy !== G.humanSeat) {
+    const discard = G.lastDiscard;
+    if (discard) {
+      // Check win
+      if (canWinWith(G.hands[G.humanSeat], G.melds[G.humanSeat], discard)) {
+        showBtn('btn-win');
+      }
+      // Check pon
+      if (countInHand(G.humanSeat, discard) >= 2) {
+        showBtn('btn-pon');
+        // kan
+        if (countInHand(G.humanSeat, discard) >= 3) showBtn('btn-kan');
+      }
+      // Check chi (only from left player)
+      if (isLeftOf(G.lastDiscardBy, G.humanSeat)) {
+        const chiOpts = getChiOptions(G.humanSeat, discard);
+        if (chiOpts.length > 0) showBtn('btn-chi');
+      }
+      showBtn('btn-pass');
+    }
+  }
+}
+
+function setStatus(msg, thinking = false) {
+  const el = document.getElementById('status-msg');
+  if (el) {
+    el.textContent = msg;
+    if (thinking) el.innerHTML += '<span class="thinking-dots"></span>';
+  }
+}
+
+// ============================================================
+// PLAYER WIND HELPERS
+// ============================================================
+
+function isLeftOf(from, to) {
+  // In mahjong, you can chi from the player to your left
+  // Turn order: east -> south -> west -> north -> east
+  const order = ['east', 'south', 'west', 'north'];
+  const fi = order.indexOf(from);
+  const ti = order.indexOf(to);
+  return (fi + 1) % 4 === ti;
+}
+
+function nextSeat(seat) {
+  const order = ['east', 'south', 'west', 'north'];
+  return order[(order.indexOf(seat) + 1) % 4];
+}
+
+// ============================================================
+// HAND HELPERS
+// ============================================================
+
+function countInHand(seat, tile) {
+  return G.hands[seat].filter(t => t === tile).length;
+}
+
+function removeFromHand(seat, tile, count = 1) {
+  let removed = 0;
+  G.hands[seat] = G.hands[seat].filter(t => {
+    if (t === tile && removed < count) { removed++; return false; }
+    return true;
+  });
+}
+
+function getChiOptions(seat, discard) {
+  const num = tileNum(discard);
+  const type = tileType(discard);
+  if (num < 1 || type === 'wind' || type === 'dragon') return [];
+
+  const getTile = (n) => {
+    if (n < 1 || n > 9) return null;
+    if (type === 'man') return MAN[n-1];
+    if (type === 'pin') return PIN[n-1];
+    if (type === 'sou') return SOU[n-1];
+    return null;
+  };
+
+  const opts = [];
+  // [discard, n+1, n+2]
+  const t2a = getTile(num+1), t3a = getTile(num+2);
+  if (t2a && t3a && G.hands[seat].includes(t2a) && G.hands[seat].includes(t3a))
+    opts.push([discard, t2a, t3a]);
+  // [n-1, discard, n+1]
+  const t1b = getTile(num-1), t3b = getTile(num+1);
+  if (t1b && t3b && G.hands[seat].includes(t1b) && G.hands[seat].includes(t3b))
+    opts.push([t1b, discard, t3b]);
+  // [n-2, n-1, discard]
+  const t1c = getTile(num-2), t2c = getTile(num-1);
+  if (t1c && t2c && G.hands[seat].includes(t1c) && G.hands[seat].includes(t2c))
+    opts.push([t1c, t2c, discard]);
+
+  return opts;
+}
+
+// ============================================================
+// GAME LOG
+// ============================================================
+
+function addLog(msg, cls = '') {
+  G.gameLog.push({ msg, cls });
+  const el = document.getElementById('game-log');
+  if (el) {
+    const div = document.createElement('div');
+    div.className = 'log-entry ' + cls;
+    div.textContent = msg;
+    el.appendChild(div);
+    el.scrollTop = el.scrollHeight;
+  }
+}
+
+// ============================================================
+// GAME FLOW
+// ============================================================
+
+function playerDraw(seat) {
+  const tile = drawTile(seat);
+  if (!tile) {
+    endRoundDraw();
+    return;
+  }
+  G.phase = 'discard';
+  G.currentPlayer = seat;
+  if (seat === G.humanSeat) {
+    addLog(`Du drog ${tile}`);
+    setStatus('Du drog ' + tile + ' — välj en bricka att kasta');
+  }
+}
+
+function afterDiscard(seat, tile) {
+  G.discards.push({ seat, tile });
+  G.allDiscards.push({ seat, tile });
+  G.lastDiscard = tile;
+  G.lastDiscardBy = seat;
+  G.phase = 'claim';
+  G.selectedTile = -1;
+
+  // Check if any player can claim
+  // AI players claim first, then human
+  let claimed = false;
+
+  // Check if any player can win
+  const diff = DIFF_SETTINGS[DIFFICULTY];
+  for (const s of SEATS) {
+    if (s === seat) continue;
+    if (canWinWith(G.hands[s], G.melds[s], tile)) {
+      if (s !== G.humanSeat && Math.random() < diff.winChance) {
+        // AI wins!
+        setTimeout(() => aiClaimWin(s, tile), 600);
+        claimed = true;
+        break;
+      }
+    }
+  }
+
+  if (!claimed) {
+    // Check AI pon/kan — chance depends on difficulty
+    const diff = DIFF_SETTINGS[DIFFICULTY];
+    for (const s of G.aiSeats) {
+      if (s === seat) continue;
+      if (countInHand(s, tile) >= 2 && Math.random() < diff.ponChance) {
+        setTimeout(() => aiClaimPon(s, tile), 800);
+        claimed = true;
+        break;
+      }
+    }
+  }
+
+  if (!claimed) {
+    // Move to next player or let human claim
+    renderAll();
+    if (G.currentPlayer !== G.humanSeat) {
+      // Let human see and decide
+      const humanCanAct = canWinWith(G.hands[G.humanSeat], G.melds[G.humanSeat], tile) ||
+        countInHand(G.humanSeat, tile) >= 2 ||
+        (isLeftOf(seat, G.humanSeat) && getChiOptions(G.humanSeat, tile).length > 0);
+
+      if (humanCanAct) {
+        setStatus('Vill du ta ' + tile + '?');
+        renderActionButtons();
+        return; // Wait for human input
+      }
+    }
+    // Next player draws
+    setTimeout(() => {
+      G.currentPlayer = nextSeat(seat);
+      playerDraw(G.currentPlayer);
+      renderAll();
+      if (G.currentPlayer !== G.humanSeat) {
+        setTimeout(() => aiTurn(G.currentPlayer), 1000);
+      }
+    }, 400);
+  }
+}
+
+// ============================================================
+// HUMAN ACTIONS
+// ============================================================
+
+function selectTile(idx) {
+  if (G.currentPlayer !== G.humanSeat || G.phase !== 'discard') return;
+  G.selectedTile = G.selectedTile === idx ? -1 : idx;
+  renderAll();
+}
+
+function humanDiscard() {
+  if (G.currentPlayer !== G.humanSeat || G.phase !== 'discard') return;
+  if (G.selectedTile < 0) {
+    setStatus('Välj en bricka att kasta!');
+    return;
+  }
+  const hand = sortHand(G.hands[G.humanSeat]);
+  G.hands[G.humanSeat] = hand;
+  const tile = hand[G.selectedTile];
+  removeFromHand(G.humanSeat, tile);
+  G.hands[G.humanSeat] = sortHand(G.hands[G.humanSeat]);
+  addLog('Du kastade ' + tile);
+  setStatus('');
+  renderAll();
+  afterDiscard(G.humanSeat, tile);
+}
+
+function humanWin() {
+  const tile = G.lastDiscard;
+  const seat = G.humanSeat;
+
+  if (G.phase === 'discard' && G.currentPlayer === seat) {
+    // Self-draw win
+    declareWin(seat, null, true);
+  } else if (G.phase === 'claim' && tile) {
+    // Win on discard
+    if (canWinWith(G.hands[seat], G.melds[seat], tile)) {
+      G.hands[seat].push(tile);
+      declareWin(seat, G.lastDiscardBy, false);
+    }
+  }
+}
+
+function humanPon() {
+  if (G.phase !== 'claim' || !G.lastDiscard) return;
+  const tile = G.lastDiscard;
+  if (countInHand(G.humanSeat, tile) < 2) return;
+
+  removeFromHand(G.humanSeat, tile, 2);
+  G.melds[G.humanSeat].push({ type: 'pon', tiles: [tile, tile, tile] });
+  G.hands[G.humanSeat] = sortHand(G.hands[G.humanSeat]);
+  G.currentPlayer = G.humanSeat;
+  G.phase = 'discard';
+  addLog('Du gör PON på ' + tile);
+  setStatus('Välj en bricka att kasta');
+  renderAll();
+}
+
+function humanKan() {
+  if (G.phase !== 'claim' || !G.lastDiscard) return;
+  const tile = G.lastDiscard;
+  if (countInHand(G.humanSeat, tile) < 3) return;
+
+  removeFromHand(G.humanSeat, tile, 3);
+  G.melds[G.humanSeat].push({ type: 'kan', tiles: [tile, tile, tile, tile] });
+  G.hands[G.humanSeat] = sortHand(G.hands[G.humanSeat]);
+  G.currentPlayer = G.humanSeat;
+  G.phase = 'discard';
+  // Draw replacement
+  const drawn = drawTile(G.humanSeat);
+  addLog('Du gör KAN på ' + tile + ', drar ' + drawn);
+  setStatus('Du drog ' + drawn + ' — välj en bricka att kasta');
+  renderAll();
+}
+
+function humanChi() {
+  if (G.phase !== 'claim' || !G.lastDiscard) return;
+  if (!isLeftOf(G.lastDiscardBy, G.humanSeat)) return;
+
+  const tile = G.lastDiscard;
+  const opts = getChiOptions(G.humanSeat, tile);
+  if (opts.length === 0) return;
+
+  if (opts.length === 1) {
+    performChi(G.humanSeat, opts[0], tile);
+    return;
+  }
+
+  // Show chi options
+  const modal = document.getElementById('chi-modal');
+  const container = document.getElementById('chi-options');
+  container.innerHTML = '';
+  opts.forEach(opt => {
+    const div = document.createElement('div');
+    div.className = 'chi-option';
+    div.innerHTML = opt.map(t => `<div class="tile" style="color:${tileColor(t)}">${t}</div>`).join('');
+    div.onclick = () => {
+      modal.classList.remove('active');
+      performChi(G.humanSeat, opt, tile);
+    };
+    container.appendChild(div);
+  });
+  modal.classList.add('active');
+}
+
+function performChi(seat, sequence, discard) {
+  // Remove non-discard tiles from hand
+  for (const t of sequence) {
+    if (t !== discard) removeFromHand(seat, t);
+  }
+  G.melds[seat].push({ type: 'chi', tiles: sequence });
+  G.hands[seat] = sortHand(G.hands[seat]);
+  G.currentPlayer = seat;
+  G.phase = 'discard';
+  addLog((seat === G.humanSeat ? 'Du' : seat) + ' gör CHI på ' + discard);
+  if (seat === G.humanSeat) setStatus('Välj en bricka att kasta');
+  renderAll();
+}
+
+function humanPass() {
+  G.phase = 'draw';
+  G.currentPlayer = nextSeat(G.lastDiscardBy);
+  renderAll();
+  if (G.currentPlayer !== G.humanSeat) {
+    setTimeout(() => {
+      playerDraw(G.currentPlayer);
+      renderAll();
+      setTimeout(() => aiTurn(G.currentPlayer), 800);
+    }, 300);
+  } else {
+    playerDraw(G.currentPlayer);
+    renderAll();
+  }
+}
+
+// ============================================================
+// AI LOGIC
+// ============================================================
+
+function aiTurn(seat) {
+  if (G.currentPlayer !== seat || G.phase !== 'discard') return;
+  if (G.waiting) return;
+
+  const diff = DIFF_SETTINGS[DIFFICULTY];
+  setStatus(seat + ' tänker', true);
+
+  // Check self-draw win
+  if (checkWin(G.hands[seat], G.melds[seat])) {
+    setTimeout(() => {
+      declareWin(seat, null, true);
+    }, diff.thinkDelay + 400);
+    return;
+  }
+
+  setTimeout(() => {
+    const tile = diff.smartDiscard ? aiChooseDiscard(seat) : aiChooseDiscardRandom(seat);
+    removeFromHand(seat, tile);
+    G.hands[seat] = sortHand(G.hands[seat]);
+    addLog(seatName(seat) + ' kastar ' + tile);
+    setStatus('');
+    renderAll();
+    afterDiscard(seat, tile);
+  }, diff.thinkDelay + Math.random() * 400);
+}
+
+function aiChooseDiscardRandom(seat) {
+  // Easy AI: just picks a random tile (slightly preferring honors)
+  const hand = [...G.hands[seat]];
+  const honors = hand.filter(t => tileType(t) === 'wind' || tileType(t) === 'dragon');
+  if (honors.length > 0 && Math.random() < 0.6) return honors[Math.floor(Math.random() * honors.length)];
+  return hand[Math.floor(Math.random() * hand.length)];
+}
+
+function aiChooseDiscard(seat) {
+  const hand = [...G.hands[seat]];
+
+  // Score each tile — prefer discarding isolated honors and terminals
+  const scores = hand.map(tile => {
+    let score = 0;
+    const type = tileType(tile);
+    const num = tileNum(tile);
+
+    if (type === 'wind' || type === 'dragon') score += 3;
+    if (num === 1 || num === 9) score += 2;
+
+    // Bonus for tiles that have pairs or sequences
+    const count = hand.filter(t => t === tile).length;
+    if (count >= 2) score -= 4; // keep pairs
+    if (count >= 3) score -= 6; // keep triples
+
+    // Check if part of sequence
+    if (num > 0) {
+      const getTile = (n) => {
+        if (n < 1 || n > 9) return null;
+        if (type === 'man') return MAN[n-1];
+        if (type === 'pin') return PIN[n-1];
+        if (type === 'sou') return SOU[n-1];
+        return null;
+      };
+      if (hand.includes(getTile(num-1)) || hand.includes(getTile(num+1)) ||
+          hand.includes(getTile(num-2)) || hand.includes(getTile(num+2))) score -= 2;
+    }
+    return { tile, score };
+  });
+
+  scores.sort((a, b) => b.score - a.score);
+  return scores[0].tile;
+}
+
+function aiClaimWin(seat, tile) {
+  G.hands[seat].push(tile);
+  declareWin(seat, G.lastDiscardBy, false);
+}
+
+function aiClaimPon(seat, tile) {
+  removeFromHand(seat, tile, 2);
+  G.melds[seat].push({ type: 'pon', tiles: [tile, tile, tile] });
+  G.hands[seat] = sortHand(G.hands[seat]);
+  G.currentPlayer = seat;
+  G.phase = 'discard';
+  addLog(seatName(seat) + ' gör PON på ' + tile, 'log-pon');
+  renderAll();
+  setTimeout(() => aiTurn(seat), 1000);
+}
+
+// ============================================================
+// WIN / END ROUND
+// ============================================================
+
+function declareWin(winner, discarder, selfDraw) {
+  G.waiting = true;
+
+  // Calculate score
+  const baseScore = calculateScore(winner, selfDraw);
+  let scoreChange = {};
+  if (selfDraw) {
+    for (const s of SEATS) {
+      if (s !== winner) {
+        G.scores[s] -= baseScore;
+        scoreChange[s] = -baseScore;
+      }
+    }
+    G.scores[winner] += baseScore * 3;
+    scoreChange[winner] = baseScore * 3;
+  } else {
+    G.scores[discarder] -= baseScore * 2;
+    G.scores[winner] += baseScore * 2;
+    scoreChange[discarder] = -baseScore * 2;
+    scoreChange[winner] = baseScore * 2;
+  }
+
+  addLog('🏆 ' + seatName(winner) + ' vinner!', 'log-win');
+
+  const isHuman = winner === G.humanSeat;
+  const winnerName = seatName(winner);
+  const method = selfDraw ? 'Tsumo (självdrag)' : 'Ron (kastkrav)';
+
+  showModal(
+    isHuman ? '🏆 Mahjong!' : seatName(winner) + ' vinner!',
+    isHuman ? '🎉' : '😔',
+    `${winnerName} vann med ${method}!`,
+    sortHand(G.hands[winner]),
+    isHuman ? `+${scoreChange[G.humanSeat]}p` : `${scoreChange[G.humanSeat] || 0}p`,
+    () => nextHand()
+  );
+}
+
+function calculateScore(seat, selfDraw) {
+  // Simplified scoring
+  let score = 1000;
+  const melds = G.melds[seat];
+  for (const m of melds) {
+    if (m.type === 'kan') score += 500;
+    if (m.type === 'pon') score += 200;
+  }
+  if (selfDraw) score += 500;
+  return score;
+}
+
+function endRoundDraw() {
+  G.waiting = true;
+  addLog('Inga brickor kvar — oavgjort!');
+  showModal(
+    'Oavgjort',
+    '🀫',
+    'Inga brickor kvar i muren. Ingen vinnare denna hand.',
+    [],
+    '',
+    () => nextHand()
+  );
+}
+
+function nextHand() {
+  hideModal();
+  G.round++;
+  if (G.round > 4) {
+    showFinalScore();
+    return;
+  }
+  // Rotate dealer
+  G.dealer = nextSeat(G.dealer);
+  const windIdx = (G.round - 1) % 4;
+  G.roundWind = ROUND_WINDS[windIdx];
+  initGame();
+  renderAll();
+  // Start game
+  G.currentPlayer = 'east';
+  playerDraw('east');
+  renderAll();
+  if (G.currentPlayer !== G.humanSeat) {
+    setTimeout(() => aiTurn(G.currentPlayer), 1000);
+  }
+}
+
+function showFinalScore() {
+  const sorted = SEATS.map(s => ({ seat: s, score: G.scores[s] }))
+    .sort((a, b) => b.score - a.score);
+  const humanRank = sorted.findIndex(x => x.seat === G.humanSeat) + 1;
+  showModal(
+    'Spelet slut!',
+    humanRank === 1 ? '🏆' : '🎮',
+    sorted.map(x => `${seatName(x.seat)}: ${x.score.toLocaleString()}p`).join('\n'),
+    [],
+    `Du kom på plats ${humanRank}!`,
+    () => goHome()
+  );
+  document.getElementById('modal-next-btn').textContent = 'Nytt spel';
+  document.getElementById('modal-next-btn').onclick = () => { hideModal(); startGame(); };
+}
+
+// ============================================================
+// MODAL
+// ============================================================
+
+function showModal(title, kanji, desc, tiles, score, onNext) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-kanji').textContent = kanji;
+  document.getElementById('modal-desc').textContent = desc;
+  document.getElementById('modal-score').textContent = score;
+
+  const tilesEl = document.getElementById('modal-tiles');
+  tilesEl.innerHTML = tiles.map(t =>
+    `<div class="win-tile">${tileInner(t)}</div>`
+  ).join('');
+
+  document.getElementById('modal-next-btn').textContent = 'Nästa hand';
+  document.getElementById('modal-next-btn').onclick = onNext;
+  document.getElementById('modal-overlay').classList.add('active');
+}
+
+function hideModal() {
+  document.getElementById('modal-overlay').classList.remove('active');
+}
+
+// ============================================================
+// HELPERS
+// ============================================================
+
+function seatName(seat) {
+  const names = { east: 'Öst', south: 'Du', west: 'Väst', north: 'Norr' };
+  return names[seat] || seat;
+}
+
+function showMenu() {
+  if (confirm('Gå tillbaka till menyn? Spelet avslutas.')) goHome();
+}
+
+// ============================================================
+// HINT SYSTEM
+// ============================================================
+
+function calcShanten(hand, melds) {
+  // Approximate shanten number (tiles needed to reach tenpai)
+  // -1 = complete, 0 = tenpai, 1 = 1 away, etc.
+  const tiles = [...hand];
+  let minShanten = 8;
+
+  const unique = [...new Set(tiles)];
+  for (const pair of unique) {
+    const r = [...tiles];
+    let removed = 0;
+    for (let i = 0; i < r.length && removed < 2; i++) {
+      if (r[i] === pair) { r.splice(i,1); i--; removed++; }
+    }
+    if (removed < 2) continue;
+    const s = calcSetsShanten(r, 0);
+    minShanten = Math.min(minShanten, s);
+  }
+  return minShanten;
+}
+
+function calcSetsShanten(tiles, depth) {
+  if (tiles.length === 0) return -1 + depth * 0; // -1 = win
+  if (tiles.length % 3 !== 0) return 8;
+
+  const setsNeeded = tiles.length / 3;
+  if (setsNeeded === 0) return -1;
+
+  let best = setsNeeded - 1; // worst case: need all sets
+
+  const arr = [...tiles].sort();
+  const t = arr[0];
+  const num = tileNum(t);
+  const type = tileType(t);
+
+  // Try pon
+  if (arr.filter(x => x === t).length >= 3) {
+    const rest = [...arr];
+    let rem = 3;
+    for (let i = 0; i < rest.length && rem; i++) {
+      if (rest[i] === t) { rest.splice(i,1); i--; rem--; }
+    }
+    const s = calcSetsShanten(rest, depth);
+    best = Math.min(best, s);
+  }
+
+  // Try chi
+  if (num > 0 && type !== 'wind' && type !== 'dragon' && num <= 7) {
+    const getTile = (n) => {
+      if (type === 'man') return MAN[n-1];
+      if (type === 'pin') return PIN[n-1];
+      if (type === 'sou') return SOU[n-1];
+    };
+    const t2 = getTile(num+1), t3 = getTile(num+2);
+    if (arr.includes(t2) && arr.includes(t3)) {
+      const rest = [...arr];
+      [t, t2, t3].forEach(x => { const i = rest.indexOf(x); if (i>=0) rest.splice(i,1); });
+      const s = calcSetsShanten(rest, depth);
+      best = Math.min(best, s);
+    }
+  }
+
+  return best;
+}
+
+function getBestDiscard(hand) {
+  // Find which tile to discard to minimize shanten
+  let bestTile = null, bestShanten = 99;
+  const unique = [...new Set(hand)];
+  for (const tile of unique) {
+    const rest = [...hand];
+    rest.splice(rest.indexOf(tile), 1);
+    // For shanten we need exactly 13 tiles minus declared melds
+    const s = calcShanten(rest, []);
+    if (s < bestShanten) { bestShanten = s; bestTile = tile; }
+  }
+  return { tile: bestTile, shanten: bestShanten };
+}
+
+function getTenpaiWaits(hand) {
+  // Find which tiles complete the hand (waits)
+  const allTiles = [...MAN, ...PIN, ...SOU, ...WINDS, ...DRAG];
+  const waits = [];
+  for (const t of allTiles) {
+    if (canWinWith(hand, [], t)) waits.push(t);
+  }
+  return [...new Set(waits)];
+}
+
+function showHint() {
+  const hand = sortHand([...G.hands[G.humanSeat]]);
+  const melds = G.melds[G.humanSeat];
+  const content = document.getElementById('hint-content');
+
+  // Check if already winning
+  if (checkWin(hand, melds)) {
+    content.innerHTML = `<p class="hint-text">🏆 Du har redan <strong>Mahjong</strong>! Tryck på MAHJONG-knappen!</p>`;
+    document.getElementById('hint-modal').classList.add('active');
+    return;
+  }
+
+  // Get shanten
+  const shanten = calcShanten(hand, melds);
+  const { tile: bestDiscard } = getBestDiscard(hand);
+  const waits = shanten <= 0 ? getTenpaiWaits(hand) : [];
+
+  let html = '';
+
+  // Shanten number
+  const shantenText = shanten === 0 ? '🎯 Tenpai (väntar på sista brickan!)' :
+                      shanten === 1 ? '1 bricka från tenpai' :
+                      shanten === 2 ? '2 brickor från tenpai' :
+                      `${shanten} brickor från tenpai`;
+
+  html += `<div class="hint-section">
+    <div class="hint-section-title">Avstånd till vinst</div>
+    <span class="shanten-badge">${shantenText}</span>
+  </div>`;
+
+  // Best discard suggestion
+  if (bestDiscard && G.phase === 'discard' && G.currentPlayer === G.humanSeat) {
+    html += `<div class="hint-section">
+      <div class="hint-section-title">Rekommenderad kastning</div>
+      <div class="hint-tiles">`;
+    hand.forEach(t => {
+      const isTarget = t === bestDiscard;
+      html += `<div class="hint-tile${isTarget ? ' highlight' : ''}">${tileInner(t)}</div>`;
+    });
+    html += `</div>
+      <p class="hint-text">Kasta <strong style="color:${tileColor(bestDiscard)}">${bestDiscard}</strong> för att komma närmast tenpai.</p>
+    </div>`;
+  }
+
+  // Waits if in tenpai
+  if (shanten === 0 && waits.length > 0) {
+    html += `<div class="hint-section">
+      <div class="hint-section-title">Du väntar på</div>
+      <div class="hint-tiles">`;
+    waits.forEach(t => {
+      html += `<div class="hint-tile highlight">${tileInner(t)}</div>`;
+    });
+    html += `</div>
+      <p class="hint-text">Dessa brickor ger dig <strong>Mahjong</strong>!</p>
+    </div>`;
+  }
+
+  // Current melds
+  if (melds.length > 0) {
+    html += `<div class="hint-section">
+      <div class="hint-section-title">Dina deklarerade set</div>
+      <div class="hint-tiles">`;
+    melds.forEach(m => {
+      m.tiles.forEach(t => {
+        html += `<div class="hint-tile" style="color:${tileColor(t)}">${tileInner(t)}</div>`;
+      });
+      html += `<span style="color:rgba(255,255,255,0.3);margin:0 4px;">|</span>`;
+    });
+    html += `</div></div>`;
+  }
+
+  // General tips based on hand
+  html += `<div class="hint-section">
+    <div class="hint-section-title">Allmänt tips</div>
+    <p class="hint-text">${getGeneralTip(hand, melds, shanten)}</p>
+  </div>`;
+
+  content.innerHTML = html;
+  document.getElementById('hint-modal').classList.add('active');
+}
+
+function getGeneralTip(hand, melds, shanten) {
+  const pairs = [...new Set(hand)].filter(t => hand.filter(x => x === t).length >= 2);
+  const triples = [...new Set(hand)].filter(t => hand.filter(x => x === t).length >= 3);
+  const honors = hand.filter(t => tileType(t) === 'wind' || tileType(t) === 'dragon');
+  const isolated = hand.filter(t => {
+    const num = tileNum(t);
+    if (num < 1) return hand.filter(x => x === t).length === 1;
+    const type = tileType(t);
+    const arr = hand;
+    const getTile = (n) => {
+      if (n<1||n>9) return null;
+      if (type==='man') return MAN[n-1];
+      if (type==='pin') return PIN[n-1];
+      if (type==='sou') return SOU[n-1];
+      return null;
+    };
+    return !arr.includes(getTile(num-1)) && !arr.includes(getTile(num+1)) && arr.filter(x=>x===t).length===1;
+  });
+
+  if (shanten === 0) return 'Du är i tenpai! Passa inte — vänta på din vinnarbricka.';
+  if (triples.length > 0) return `Du har ett trippel av ${triples[0]} — bra grund! Håll kvar det och bygg runt det.`;
+  if (pairs.length >= 4) return 'Du har många par — överväg att sikta på Chiitoitsu (sju par) som vinsthand!';
+  if (honors.length >= 3) return 'Du har många hedersbrickor. Kasta dem tidigt — de är svåra att använda i sekvenser.';
+  if (isolated.length > 0) return `Kasta isolerade brickor som ${isolated[0]} — de bidrar inte till sekvenser eller par.`;
+  return 'Fokusera på att bilda 4 set + 1 par. Håll brickor som är nära sekvenser (t.ex. 4-5 kan bli 3-4-5).';
+}
+
+function goHome() {
+  hideModal();
+  document.getElementById('start-screen').classList.add('active');
+  document.getElementById('game-screen').classList.remove('active');
+}
+
+// ============================================================
+// START GAME
+// ============================================================
+
+function startGame() {
+  document.getElementById('start-screen').classList.remove('active');
+  document.getElementById('game-screen').classList.add('active');
+
+  // Update difficulty badge
+  const labels = { easy: '🟢 Lätt', medium: '🟡 Medel', hard: '🔴 Svår' };
+  document.getElementById('diff-badge').textContent = labels[DIFFICULTY];
+
+  initGame();
+  renderAll();
+
+  // East player draws first
+  G.currentPlayer = 'east';
+  playerDraw('east');
+  renderAll();
+
+  if (G.currentPlayer !== G.humanSeat) {
+    setTimeout(() => aiTurn(G.currentPlayer), 1000);
+  } else {
+    setStatus('Din tur att dra!');
+  }
+}
+
+// Initial screen
+document.getElementById('start-screen').classList.add('active');
+document.getElementById('game-screen').classList.remove('active');
+</script>
+</body>
+</html>
