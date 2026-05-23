@@ -1566,12 +1566,25 @@ function afterDiscard(seat, tile) {
   }
 
   if (!claimed) {
-    // Check AI pon/kan — chance depends on difficulty
-    const diff = DIFF_SETTINGS[DIFFICULTY];
+    // Check AI pon — chance depends on difficulty
+    const diff2 = DIFF_SETTINGS[DIFFICULTY];
     for (const s of G.aiSeats) {
       if (s === seat) continue;
-      if (countInHand(s, tile) >= 2 && Math.random() < diff.ponChance) {
+      if (countInHand(s, tile) >= 2 && Math.random() < diff2.ponChance) {
         setTimeout(() => aiClaimPon(s, tile), 800);
+        claimed = true;
+        break;
+      }
+    }
+  }
+
+  if (!claimed) {
+    // Check AI CHI (only left player can chi)
+    for (const s of G.aiSeats) {
+      if (!isLeftOf(seat, s)) continue;
+      const chiOpt = aiShouldChi(s, tile);
+      if (chiOpt) {
+        setTimeout(() => aiClaimChi(s, chiOpt, tile), 800);
         claimed = true;
         break;
       }
@@ -1741,15 +1754,61 @@ function humanPass() {
 }
 
 // ============================================================
-// AI LOGIC
+// AI LOGIC — Smart AI with CHI, memory, defensive play
 // ============================================================
+
+// Returns set of all tiles that have been discarded (for memory)
+function getDiscardedTiles() {
+  const set = {};
+  for (const d of G.discards) {
+    set[d.tile] = (set[d.tile] || 0) + 1;
+  }
+  return set;
+}
+
+// Check if a tile is "safe" to discard (already discarded by others = safer)
+function isSafeTile(tile, seat) {
+  const discarded = getDiscardedTiles();
+  // Tile already discarded 3+ times = very safe
+  if ((discarded[tile] || 0) >= 3) return true;
+  // Tile in our own melds = safe
+  for (const m of G.melds[seat]) {
+    if (m.tiles.includes(tile)) return true;
+  }
+  return false;
+}
+
+// Estimate how "dangerous" a tile is to discard (could help opponents)
+function dangerScore(tile, seat) {
+  if (DIFFICULTY === 'easy') return 0; // easy AI doesn't think defensively
+  const discarded = getDiscardedTiles();
+  let danger = 0;
+  const type = tileType(tile);
+  const num = tileNum(tile);
+
+  // Tiles already in opponent melds = dangerous
+  for (const s of SEATS) {
+    if (s === seat) continue;
+    for (const m of G.melds[s]) {
+      if (m.tiles.includes(tile)) danger += 3;
+    }
+  }
+
+  // Middle tiles (4-6) are more dangerous — fit more sequences
+  if (num >= 4 && num <= 6) danger += 1;
+
+  // Already discarded = safer
+  if ((discarded[tile] || 0) >= 2) danger -= 2;
+
+  return danger;
+}
 
 function aiTurn(seat) {
   if (G.currentPlayer !== seat || G.phase !== 'discard') return;
   if (G.waiting) return;
 
   const diff = DIFF_SETTINGS[DIFFICULTY];
-  setStatus(seat + ' tänker', true);
+  setStatus(seatName(seat) + ' tänker', true);
 
   // Check self-draw win
   if (checkWin(G.hands[seat], G.melds[seat])) {
@@ -1763,7 +1822,7 @@ function aiTurn(seat) {
     const tile = diff.smartDiscard ? aiChooseDiscard(seat) : aiChooseDiscardRandom(seat);
     removeFromHand(seat, tile);
     G.hands[seat] = sortHand(G.hands[seat]);
-    addLog(seatName(seat) + ' kastar ' + tile);
+    addLog(seatName(seat) + ' kastar');
     setStatus('');
     renderAll();
     afterDiscard(seat, tile);
@@ -1771,7 +1830,6 @@ function aiTurn(seat) {
 }
 
 function aiChooseDiscardRandom(seat) {
-  // Easy AI: just picks a random tile (slightly preferring honors)
   const hand = [...G.hands[seat]];
   const honors = hand.filter(t => tileType(t) === 'wind' || tileType(t) === 'dragon');
   if (honors.length > 0 && Math.random() < 0.6) return honors[Math.floor(Math.random() * honors.length)];
@@ -1781,37 +1839,71 @@ function aiChooseDiscardRandom(seat) {
 function aiChooseDiscard(seat) {
   const hand = [...G.hands[seat]];
 
-  // Score each tile — prefer discarding isolated honors and terminals
   const scores = hand.map(tile => {
     let score = 0;
     const type = tileType(tile);
     const num = tileNum(tile);
 
-    if (type === 'wind' || type === 'dragon') score += 3;
+    // Prefer discarding isolated honors and terminals
+    if (type === 'wind' || type === 'dragon') score += 4;
     if (num === 1 || num === 9) score += 2;
 
-    // Bonus for tiles that have pairs or sequences
+    // Keep pairs and triples
     const count = hand.filter(t => t === tile).length;
-    if (count >= 2) score -= 4; // keep pairs
-    if (count >= 3) score -= 6; // keep triples
+    if (count >= 2) score -= 5;
+    if (count >= 3) score -= 8;
 
-    // Check if part of sequence
+    // Keep tiles that are part of sequences
     if (num > 0) {
-      const getTile = (n) => {
+      const getSuit = (n) => {
         if (n < 1 || n > 9) return null;
         if (type === 'man') return MAN[n-1];
         if (type === 'pin') return PIN[n-1];
         if (type === 'sou') return SOU[n-1];
         return null;
       };
-      if (hand.includes(getTile(num-1)) || hand.includes(getTile(num+1)) ||
-          hand.includes(getTile(num-2)) || hand.includes(getTile(num+2))) score -= 2;
+      const neighbors = [getSuit(num-2),getSuit(num-1),getSuit(num+1),getSuit(num+2)].filter(Boolean);
+      const connected = neighbors.filter(t => hand.includes(t)).length;
+      score -= connected * 2;
     }
+
+    // Defensive: add danger score if Hard difficulty
+    if (DIFFICULTY === 'hard') score += dangerScore(tile, seat);
+
+    // Safe tiles are preferred to discard
+    if (isSafeTile(tile, seat)) score -= 1;
+
     return { tile, score };
   });
 
   scores.sort((a, b) => b.score - a.score);
   return scores[0].tile;
+}
+
+// AI decides whether to CHI from the left player
+function aiShouldChi(seat, tile) {
+  if (DIFFICULTY === 'easy') return false;
+  const opts = getChiOptions(seat, tile);
+  if (opts.length === 0) return false;
+
+  // Check if chi helps shorten path to win
+  const chiChance = DIFFICULTY === 'hard' ? 0.7 : 0.4;
+  if (Math.random() > chiChance) return false;
+
+  // Pick best chi option (one that gives best shanten)
+  let bestOpt = null, bestS = 99;
+  for (const opt of opts) {
+    const tempHand = [...G.hands[seat]];
+    for (const t of opt) {
+      if (t !== tile) {
+        const i = tempHand.indexOf(t);
+        if (i >= 0) tempHand.splice(i, 1);
+      }
+    }
+    const s = calcShanten(tempHand, G.melds[seat]);
+    if (s < bestS) { bestS = s; bestOpt = opt; }
+  }
+  return bestOpt;
 }
 
 function aiClaimWin(seat, tile) {
@@ -1825,7 +1917,20 @@ function aiClaimPon(seat, tile) {
   G.hands[seat] = sortHand(G.hands[seat]);
   G.currentPlayer = seat;
   G.phase = 'discard';
-  addLog(seatName(seat) + ' gör PON på ' + tile, 'log-pon');
+  addLog(seatName(seat) + ' gör PON', 'log-pon');
+  renderAll();
+  setTimeout(() => aiTurn(seat), 1000);
+}
+
+function aiClaimChi(seat, sequence, tile) {
+  for (const t of sequence) {
+    if (t !== tile) removeFromHand(seat, t);
+  }
+  G.melds[seat].push({ type: 'chi', tiles: sequence });
+  G.hands[seat] = sortHand(G.hands[seat]);
+  G.currentPlayer = seat;
+  G.phase = 'discard';
+  addLog(seatName(seat) + ' gör CHI', 'log-draw');
   renderAll();
   setTimeout(() => aiTurn(seat), 1000);
 }
